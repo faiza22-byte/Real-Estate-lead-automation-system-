@@ -1,0 +1,684 @@
+{
+  "name": "Real Estate AI Lead Automation (All-in-One)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "YOUR_LEAD_INTAKE_FORM_PATH_ID",
+        "formTitle": "Real Estate Lead Intake",
+        "formDescription": "Tell us a bit about what you're looking for and we'll be in touch.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Phone"
+            },
+            {
+              "fieldLabel": "Property Type"
+            },
+            {
+              "fieldLabel": "Budget"
+            },
+            {
+              "fieldLabel": "Preferred Date",
+              "placeholder": "YYYY-MM-DD"
+            },
+            {
+              "fieldLabel": "Preferred Time"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "form-trigger-node-id",
+      "name": "Lead Intake Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        51152,
+        23216
+      ],
+      "webhookId": "YOUR_LEAD_INTAKE_FORM_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c0",
+              "name": "n8nBaseUrl",
+              "type": "string",
+              "value": "https://YOUR_PRODUCTION_OR_NGROK_DOMAIN.com"
+            },
+            {
+              "id": "c1",
+              "name": "voiceAgentLink",
+              "type": "string",
+              "value": "=https://YOUR_PRODUCTION_OR_NGROK_DOMAIN.com/webhook/talk-to-agent?email={{ encodeURIComponent($('Lead Intake Form').item.json.Email) }}&name={{ encodeURIComponent($('Lead Intake Form').item.json.Name) }}"
+            },
+            {
+              "id": "c2",
+              "name": "vapiAssistantId",
+              "type": "string",
+              "value": "YOUR_VAPI_ASSISTANT_ID"
+            },
+            {
+              "id": "c3",
+              "name": "vapiPublicKey",
+              "type": "string",
+              "value": "YOUR_VAPI_PUBLIC_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-lead-intake-id",
+      "name": "Config - Lead Intake",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        51376,
+        23216
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\n{{ JSON.stringify({\n  model: \"gpt-4o-mini\",\n  messages: [\n    {\n      role: \"system\",\n      content:\n`You are a professional email copywriter for a premium real estate company called PrimeNest Realty.\n\nGenerate ONLY valid HTML.\n\nDo NOT wrap the HTML inside markdown or triple backticks.\n\nThe email should look like a modern professional marketing email with:\n\n• White card centered on a light gray background\n• Dark blue header (#0d3b66)\n• Company name: PrimeNest Realty\n• Tagline: \"Helping You Find Your Perfect Home\"\n• Rounded corners\n• Soft shadow\n• Modern typography\n• A summary table of the customer's information\n• A blue call-to-action button\n• Professional footer\n\nThe tone should be warm, luxurious and welcoming.\n\nMention that their inquiry has been received and our AI Property Consultant Sarah will assist them.\n\nInclude these sections:\n\n1. Greeting using customer's name.\n2. Thank them for contacting PrimeNest Realty.\n3. Mention their inquiry has been received.\n4. Show their submitted information in a nicely styled table:\n   - Name\n   - Email\n   - Phone\n   - Property Type\n   - Budget\n   - Preferred Date\n   - Preferred Time\n5. Explain the next steps.\n6. Encourage them to speak with our AI voice assistant Sarah.\n7. Add a large blue button saying:\n   \"Talk to Sarah\"\n\nThe button MUST link to:\n\n${$('Build Agent Link with Record ID').first().json.voiceAgentLink}\n\nFinish with a professional footer containing:\n\nPrimeNest Realty\n125 Grand Avenue\nDowntown\ncontact@primenestrealty.com\n+1 (800) 555-4821\n\nReturn ONLY HTML.\n`\n    },\n    {\n      role: \"user\",\n      content:\n`Customer Details\n\nName: ${$('Lead Intake Form').item.json.Name}\n\nEmail: ${$('Lead Intake Form').item.json.Email}\n\nPhone: ${$('Lead Intake Form').item.json.Phone}\n\nProperty Type: ${$('Lead Intake Form').item.json['Property Type']}\n\nBudget: ${$('Lead Intake Form').item.json.Budget}\n\nPreferred Date: ${$('Lead Intake Form').item.json['Preferred Date']}\n\nPreferred Time: ${$('Lead Intake Form').item.json['Preferred Time']}\n`\n    }\n  ],\n  temperature: 0.7\n}) }}\n",
+        "options": {}
+      },
+      "id": "write-email-openai-id",
+      "name": "Write Personalized Email (OpenAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        51600,
+        23216
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_ACCOUNT_CREDENTIALS_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Lead Intake Form').item.json;\nconst emailBody = $input.item.json.choices[0].message.content.trim();\n\nreturn [{\n  json: {\n    name: lead.Name,\n    email: lead.Email,\n    phone: lead.Phone || '',\n    propertyType: lead['Property Type'] || '',\n    budget: lead.Budget || '',\n    preferredDate: lead['Preferred Date'] || '',\n    preferredTime: lead['Preferred Time'] || '',\n    emailBody\n  }\n}];"
+      },
+      "id": "extract-email-text-id",
+      "name": "Extract Email Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        51824,
+        23216
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Hi {{ $json.name }}, we got your inquiry!",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "id": "send-welcome-email-id",
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        52032,
+        23216
+      ],
+      "webhookId": "YOUR_WELCOME_EMAIL_GMAIL_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_OAUTH_CREDENTIALS_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Real Estate CRM Workspace",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID/YOUR_AIRTABLE_TABLE_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $('Lead Intake Form').item.json.Name }}",
+            "Email": "={{ $('Lead Intake Form').item.json.Email }}",
+            "Phone": "={{ $('Lead Intake Form').item.json.Phone }}",
+            "Property Type": "={{ $('Lead Intake Form').item.json['Property Type'] }}",
+            "Budget": "={{ $('Lead Intake Form').item.json.Budget }}",
+            "Preferred Date": "={{ new Date($('Lead Intake Form').item.json['Preferred Date']).toISOString() }}",
+            "Preferred Time": "={{ $('Lead Intake Form').item.json['Preferred Time'] }}"
+          },
+          "matchingColumns": [
+            "Email"
+          ],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Property Type",
+              "displayName": "Property Type",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "House",
+                  "value": "House"
+                },
+                {
+                  "name": "Apartment",
+                  "value": "Apartment"
+                },
+                {
+                  "name": "Condo",
+                  "value": "Condo"
+                },
+                {
+                  "name": "Commercial",
+                  "value": "Commercial"
+                },
+                {
+                  "name": "Land",
+                  "value": "Land"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Budget",
+              "displayName": "Budget",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Preferred Date",
+              "displayName": "Preferred Date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Preferred Time",
+              "displayName": "Preferred Time",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "create-lead-record-id",
+      "name": "Create Lead Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        52256,
+        23216
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIALS_ID",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-agent-return",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "voice-agent-webhook-id",
+      "name": "Voice Agent Return Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        51120,
+        23472
+      ],
+      "webhookId": "YOUR_VAPI_RETURN_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "calBookingLink",
+              "type": "string",
+              "value": "https://cal.com/YOUR_CAL_USER_SLUG/YOUR_EVENT_SLUG"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-voice-agent-id",
+      "name": "Config - Voice Agent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        51344,
+        23472
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"gpt-4o-mini\", messages: [ { role: \"system\", content: \"Summarize this lead qualification call and extract: type (buyer/seller), budget, location, timeline, financing status. Respond with ONLY valid JSON, no markdown, matching this shape: {\\\"type\\\":\\\"\\\",\\\"budget\\\":\\\"\\\",\\\"location\\\":\\\"\\\",\\\"timeline\\\":\\\"\\\",\\\"financing\\\":\\\"\\\",\\\"interested\\\":true,\\\"summary\\\":\\\"\\\"}\" }, { role: \"user\", content: ($('Voice Agent Return Webhook').item.json.body?.message?.transcript || $('Voice Agent Return Webhook').item.json.body?.message?.analysis?.summary || $('Voice Agent Return Webhook').item.json.body?.transcript || \"No transcript was available for this call.\") } ], temperature: 0.2 }) }}",
+        "options": {}
+      },
+      "id": "summarize-call-openai-id",
+      "name": "Summarize Call (OpenAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        51552,
+        23472
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_ACCOUNT_CREDENTIALS_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const vapiMsg = $('Voice Agent Return Webhook').item.json.body?.message || {};\nconst call = vapiMsg.call || {};\nconst meta = call.assistantOverrides?.metadata || call.metadata || call.assistant?.metadata || {};\nconst raw = $input.item.json.choices?.[0]?.message?.content || '';\nlet parsed;\ntry {\n  const cleaned = raw.replace(/```json|```/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = { type: '', budget: '', location: '', timeline: '', financing: '', interested: false, summary: raw };\n}\nlet budget = parsed.budget || '';\nif (typeof budget === 'string') {\n  budget = budget.replace(/[$,]/g, '').replace(/million/i, '000000').replace(/m/i, '000000');\n}\nbudget = Number(budget) || null;\nreturn [{ json: { airtableRecordId: meta.airtableRecordId || meta.recordId || '', email: meta.email || '', name: meta.name || '', type: parsed.type || '', budget: budget, location: parsed.location || '', timeline: parsed.timeline || '', financing: parsed.financing || '', interested: parsed.interested === true, summary: parsed.summary || '' } }];"
+      },
+      "id": "parse-call-summary-id",
+      "name": "Parse Call Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        51744,
+        23472
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Real Estate CRM Workspace",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID/YOUR_AIRTABLE_TABLE_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Voice Agent Return Webhook').item.json.body?.message?.call?.assistantOverrides?.metadata?.airtableRecordId || $('Voice Agent Return Webhook').item.json.body?.message?.call?.metadata?.airtableRecordId || $('Voice Agent Return Webhook').item.json.body?.message?.call?.assistant?.metadata?.airtableRecordId || '' }}",
+            "Budget": "={{ $json.budget }}",
+            "Lead Quality": "={{ $json.interested === true ? 'Hot' : 'Warm' }}",
+            "Appointment Status": "Pending",
+            "Follow Up Count": 0
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "update-lead-record-id",
+      "name": "Update Lead Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        51968,
+        23472
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIALS_ID",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $('Parse Call Summary').item.json.interested }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-interested-id",
+      "name": "Is Interested?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        52160,
+        23472
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.fields.Email }}",
+        "subject": "=Your Consultation is One Click Away, {{ $json.fields.Name }}!",
+        "message": "=<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>body{margin:0;padding:0;background:#0a0a0a;font-family:'Helvetica Neue',Arial,sans-serif}.wrap{max-width:600px;margin:0 auto;background:#0a0a0a}.header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);padding:48px 40px;text-align:center}.logo{color:#c9a84c;font-size:13px;font-weight:700;letter-spacing:4px;text-transform:uppercase;margin-bottom:24px}.header h1{color:#ffffff;font-size:28px;font-weight:300;margin:0;letter-spacing:1px;line-height:1.3}.header h1 span{color:#c9a84c;font-weight:600}.gold-line{width:60px;height:2px;background:linear-gradient(90deg,#c9a84c,#f0d080);margin:20px auto 0}.body{padding:40px}.greeting{color:#e8e8e8;font-size:16px;line-height:1.7;margin-bottom:28px}.greeting strong{color:#c9a84c}.card{background:#111827;border:1px solid #1e2a3a;border-radius:12px;padding:28px;margin:24px 0}.card-title{color:#c9a84c;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:16px}.feature{display:flex;align-items:flex-start;margin-bottom:14px}.feature-dot{width:6px;height:6px;background:#c9a84c;border-radius:50%;margin-top:6px;margin-right:12px;flex-shrink:0}.feature-text{color:#b0b8c8;font-size:14px;line-height:1.5}.cta-wrap{text-align:center;margin:36px 0}.cta{display:inline-block;background:linear-gradient(135deg,#c9a84c,#f0d080);color:#0a0a0a;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:1px;padding:16px 40px;border-radius:6px}.sub-cta{text-align:center;margin-top:16px}.sub-cta a{color:#c9a84c;font-size:13px;text-decoration:none}.divider{border:none;border-top:1px solid #1e2a3a;margin:32px 0}.footer{background:#050505;padding:28px 40px;text-align:center}.footer p{color:#4a5568;font-size:12px;margin:4px 0;line-height:1.6}.footer a{color:#c9a84c;text-decoration:none}</style></head><body><div class='wrap'><div class='header'><div class='logo'>PrimeNest Realty</div><h1>Your <span>Dream Property</span><br>Consultation Awaits</h1><div class='gold-line'></div></div><div class='body'><p class='greeting'>Dear <strong>{{ $('Parse Call Summary').item.json.name }}</strong>,</p><p class='greeting'>We're thrilled that you're ready to take the next step! Our senior property advisors are standing by to help you find exactly what you're looking for.</p><div class='card'><div class='card-title'>What to expect in your consultation</div><div class='feature'><div class='feature-dot'></div><div class='feature-text'>Personalised property shortlist based on your requirements</div></div><div class='feature'><div class='feature-dot'></div><div class='feature-text'>Market insights and pricing analysis for your target area</div></div><div class='feature'><div class='feature-dot'></div><div class='feature-text'>Financing options and mortgage guidance tailored to your budget</div></div><div class='feature'><div class='feature-dot'></div><div class='feature-text'>No obligation — just expert advice to help you decide</div></div></div><div class='cta-wrap'><a class='cta' href='{{ $('Config - Voice Agent').first().json.calBookingLink }}?metadata[airtableRecordId]={{ $('Parse Call Summary').item.json.airtableRecordId }}'>📅 Book Your Free Consultation</a></div><hr class='divider'><p style='color:#6b7280;font-size:13px;text-align:center;line-height:1.6'>Slots fill up fast. We recommend booking within the next 24 hours to secure your preferred time.</p></div><div class='footer'><p><strong style='color:#c9a84c'>PrimeNest Realty</strong></p><p>Premium Properties · Expert Guidance · Trusted Results</p><p style='margin-top:12px'><a href='mailto:info@YOUR_REAL_ESTATE_DOMAIN.com'>info@YOUR_REAL_ESTATE_DOMAIN.com</a> · <a href='tel:+10000000000'>+1 000 000 0000</a></p><p style='margin-top:12px;color:#2d3748'>© 2026 PrimeNest Realty. All rights reserved.</p></div></div></body></html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "send-booking-link-id",
+      "name": "Send Booking Link",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        52608,
+        23392
+      ],
+      "webhookId": "YOUR_SEND_BOOKING_GMAIL_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_OAUTH_CREDENTIALS_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true } }}",
+        "options": {}
+      },
+      "id": "respond-voice-agent-id",
+      "name": "Respond - Voice Agent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        52848,
+        23488
+      ]
+    }
+  ],
+  "connections": {
+    "Lead Intake Form": {
+      "main": [
+        [
+          {
+            "node": "Config - Lead Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config - Lead Intake": {
+      "main": [
+        [
+          {
+            "node": "Write Personalized Email (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Personalized Email (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Text": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "Create Lead Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice Agent Return Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config - Voice Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config - Voice Agent": {
+      "main": [
+        [
+          {
+            "node": "Summarize Call (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Call (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Parse Call Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Call Summary": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Lead Record": {
+      "main": [
+        [
+          {
+            "node": "Is Interested?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Interested?": {
+      "main": [
+        [
+          {
+            "node": "Send Booking Link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Voice Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Booking Link": {
+      "main": [
+        [
+          {
+            "node": "Respond - Voice Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+},
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}
